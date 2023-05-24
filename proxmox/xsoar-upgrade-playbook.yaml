@@ -1,0 +1,23 @@
+---
+- name: INSTALL XSOAR SERVERS
+  hosts: xsoar
+  tasks:
+    
+    - name: Check if demisto service is present and stopped
+      become: yes
+      service:
+        name: demisto
+        state: stopped
+    
+    - name: Run XSOAR installer script for upgrade
+      become: yes
+      script:
+        chdir: ~
+        cmd: '{{ xsoar_upgrade_installer }} --target installer -- -y'
+    
+    # Check for demisto running service
+    - name: Check demisto service
+      become: yes
+      service:
+        name: demisto
+        state: started

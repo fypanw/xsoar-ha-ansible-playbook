@@ -1,0 +1,25 @@
+all:
+  children:
+    # Group XSOAR servers
+    xsoar:
+      hosts:
+        xsoar1:
+          ansible_host: _XSOAR_VM1_PUBLIC_IP_ 
+          ansible_connection: ssh
+          ansible_user: ansible
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+        xsoar2:
+          ansible_host: _XSOAR_VM2_PUBLIC_IP_
+          ansible_connection: ssh
+          ansible_user: ansible
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+      vars:
+        ansible_user: ansible
+        xsoar_installer: ./installers/demistoserver-6.11-300044.sh
+        xsoar_upgrade_installer: ./installers/demistoserver-6.11-300044.sh
+        elasticsearch_host: your-elastic-deployment-api-endpoint:port
+        elasticsearch_url: https://your-elastic-deployment-api-endpoint:port
+        elasticsearch_username: elastic
+        elasticsearch_password: _YOUR_ES_PASSWORD_
+        nfs_host: _NFS_SERVER_IP_
+        nfs_host_path: /nfs_xsoar

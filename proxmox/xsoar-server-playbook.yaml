@@ -1,0 +1,70 @@
+---
+- name: INSTALL XSOAR SERVERS
+  hosts: xsoar
+  tasks:
+    # Install NFS client
+    - name: Install NFS client on Debian
+      become: yes
+      apt:
+        name: nfs-common
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+    - name: Install NFS client on RHEL
+      become: yes
+      yum:
+        name: nfs-utils
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+      # Create demisto folder to mount
+    - name: Create demisto folder
+      become: yes
+      command: mkdir -p /var/lib/demisto
+      # Mount to NFS Server shared folder
+    - name: Mount to NFS Server
+      become: yes
+      command: mount {{ hostvars['nfs1'].ansible_host }}:/var/lib/demisto /var/lib/demisto
+    - name: Mount permanently
+      become: yes
+      lineinfile:
+        path: /etc/fstab
+        line: "{{ hostvars['nfs1'].ansible_host }}:/var/lib/demisto   /var/lib/demisto    nfs defaults    0   0"
+        state: present
+        # Install XSOAR
+    - name: Check reachability to Elasticsearch endpoints
+      wait_for:
+        host: "{{ item | regex_search('https://(.+):', '\\1') | first }}"
+        port: 9200
+        state: started
+        delay: 0
+        timeout: 3
+      with_items: "{{ elasticsearch_urls }}"
+      ignore_errors: no
+      register: elasticsearch_reachability
+    - debug:
+        msg: "Elasticsearch URL: {{ elasticsearch_urls | join(',') }}"
+    - name: Run XSOAR installer script
+      become: yes
+      script:
+        chdir: ~
+        cmd: "{{ xsoar_installer }} --target installer -- -y \
+        -elasticsearch-url={{ elasticsearch_urls | join(',') }} \
+        -elasticsearch-username=elastic \
+        -elasticsearch-password={{ elasticsearch_password }} \
+        -elasticsearch-insecure=true"
+    # Add Firewalld rule on Centos, Redhat
+    - name: Enable HTTPS on Firewall
+      become: yes
+      command: '{{ item }}'
+      with_items:
+        - firewall-cmd --permanent --add-service=https
+        - firewall-cmd --reload
+      when: ansible_os_family == "RedHat"
+      ignore_errors: yes
+      # Check for demisto running service
+    - name: Check demisto service
+      become: yes
+      service:
+        name: demisto
+        state: started

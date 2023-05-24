@@ -1,0 +1,45 @@
+---
+- name: Install firewalld on RHEL9 with Ansible
+  hosts: 
+  - nfs
+  - xsoar
+  become: yes
+
+  tasks:
+    - name: Upgrade all packages
+      dnf:
+        name: '*'
+        state: latest
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Install packages with dnf
+      dnf:
+        name: "{{ item }}"
+        state: present
+      when: ansible_os_family == 'RedHat'
+      loop:
+        - firewalld
+        - qemu-guest-agent
+        - vim
+        - net-tools
+        - cockpit
+        - podman
+    
+    - name: Start and enable firewalld
+      service:
+        name: firewalld
+        state: started
+        enabled: yes
+      when: ansible_os_family == 'RedHat'
+    
+    - name: Start and enable chronyd for timesync
+      service:
+        name: chronyd
+        state: started
+        enabled: yes
+      when: ansible_os_family == 'RedHat'
+
+    - name: Run chronyc -a makestep
+      command: chronyc -a makestep
+      when: ansible_os_family == 'RedHat'
+     
