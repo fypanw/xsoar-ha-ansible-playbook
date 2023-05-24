@@ -6,3 +6,9 @@
 
 ### Usage
 - Set up the correct parameters in inventory.yaml
+- Use rhel-prep.yaml to prepare the fresh hosts with necessary packages. Modify the list of packages as needed.
+- Use nfs-server-playbook.yaml to setup the NFS server (by default /var/lib/demisto is exported)
+- Use xsoar-server-playbook.yaml to deploy XSOAR
+
+### Usage for upgrades
+- In case of upgrades, use the 'xsoar_upgrade_installer' setting in inventory. The installer parameter will be ignored.
