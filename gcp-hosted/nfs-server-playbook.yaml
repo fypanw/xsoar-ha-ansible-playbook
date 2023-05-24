@@ -1,0 +1,77 @@
+---
+-   name: INSTALL NFS SERVERS
+    hosts: nfs
+    tasks:
+    # Install NFS server on Ubuntu environment
+        -   name: Install NFS service on Debian
+            become: yes
+            apt: 
+                name: nfs-kernel-server
+                state: present
+                update_cache: yes
+            when: ansible_os_family == "Debian"
+    # Install NFS server on Centos, Redhat environment
+        -   name: Install NFS service on RHEL
+            become: yes
+            yum: 
+                name: nfs-utils
+                state: present
+                update_cache: yes
+            when: ansible_os_family == "RedHat"
+        -   name: start the nfs service on RHEL
+            become: yes
+            service:
+                name: nfs-server
+                state: started
+    # Create shared folder
+        -   name: Create a shared folder on NFS server Redhat
+            become: yes
+            file: 
+                path: /var/lib/demisto
+                state: directory
+            when: ansible_os_family == "RedHat"
+        -   name: Create a shared folder on NFS server Debian
+            become: yes
+            file: 
+                path: /var/lib/demisto
+                owner: nobody
+                group: nogroup
+                state: directory
+            when: ansible_os_family == "Debian"
+        -   name: export the nfs setting
+            become: yes
+            lineinfile:
+                path: /etc/exports
+                line: /var/lib/demisto    {{ hostvars['xsoar1'].ansible_host }}(rw,sync,no_root_squash,no_subtree_check) {{ hostvars['xsoar2'].ansible_host }}(rw,sync,no_root_squash,no_subtree_check)
+                state: present
+    # Restart the service on Ubuntu
+        -   name: restart the nfs service on Debian
+            become: yes
+            service:
+                name: nfs-kernel-server
+                state: restarted
+            when: ansible_os_family == "Debian"
+
+    # Restart the service on Centos, Redhat
+        -   name: export the nfs setting on RHEL
+            become: yes
+            command: exportfs -arv 
+            when: ansible_os_family == "RedHat"
+        -   name: restart the nfs service on RHEL
+            become: yes
+            service:
+                name: nfs-server
+                state: restarted
+                enabled: yes
+            when: ansible_os_family == "RedHat"
+    # Add Firewalld rule on Centos, Redhat
+        -   name: Set NFS rule on Firewall
+            become: yes
+            command: '{{ item }}'
+            with_items:
+                - firewall-cmd --permanent --add-service=nfs
+                - firewall-cmd --permanent --add-service=rpc-bind
+                - firewall-cmd --permanent --add-service=mountd
+                - firewall-cmd --reload
+            when: ansible_os_family == "RedHat"
+            ignore_errors: yes

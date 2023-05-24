@@ -1,0 +1,36 @@
+all:
+  children:
+
+    # Group XSOAR servers
+    xsoar:
+      hosts:
+        xsoar1:
+          ansible_host: 172.14.0.101
+          ansible_connection: ssh
+          ansible_user: rocky
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+
+        xsoar2:
+          ansible_host: 172.14.0.102
+          ansible_connection: ssh
+          ansible_user: rocky
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+      vars:
+        xsoar_installer: ./installers/demistoserver-6.11-300044.sh
+        # xsoar_upgrade_installer: ./installers/demistoserver-6.11-300044.sh
+        elasticsearch_urls: 
+        - "https://_ELASTIC_API_ENDPOINT_IP_OR_FQDN:9200"
+        - "https://_ELASTIC_API_ENDPOINT_IP_OR_FQDN_2:9200"
+        - "https://_ELASTIC_API_ENDPOINT_IP_OR_FQDN_3:9200"
+        elasticsearch_username: elastic
+        elasticsearch_password: _YOUR_ES_PASSWORD_
+
+    # Group NFS servers
+    nfs:
+      hosts:
+        nfs1:
+          ansible_host: 172.14.0.100
+          ansible_connection: ssh
+          ansible_user: rocky
+          ansible_ssh_private_key_file: ~/.ssh/id_rsa
+

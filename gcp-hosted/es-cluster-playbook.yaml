@@ -1,0 +1,284 @@
+# INSTALL ELASTIC SEARCH SERVICE ON ALL HOSTS
+- name: INSTALL ELASTIC SEARCH
+  hosts: es
+  tasks:
+    # Install Java JRE
+    - name: Install Java JRE on Debian
+      become: yes
+      apt:
+        name: default-jre
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+    - name: Install Java JRE on RedHat
+      become: yes
+      yum:
+        name: java-11-openjdk-devel
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+      # [DEBIAN/UBUNTU] Prepare repo and install ES on Debian
+    - name: Download Repo key
+      become: yes
+      shell: wget -qO apt_key https://artifacts.elastic.co/GPG-KEY-elasticsearch
+      args:
+        warn: false
+      when: ansible_os_family == "Debian"
+    - name: Add Repo key
+      become: yes
+      command: apt-key add apt_key
+      when: ansible_os_family == "Debian"
+    - name: Install apt transport https
+      become: yes
+      apt:
+        name: apt-transport-https
+        state: present
+      when: ansible_os_family == "Debian"
+    - name: Add ES 7 Repo
+      become: yes
+      shell:
+        cmd: echo "deb https://artifacts.elastic.co/packages/7.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-7.x.list
+      when: ansible_os_family == "Debian"
+    - name: Install ElasticSearch on Debian
+      become: yes
+      apt:
+        name: elasticsearch
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+      # [REDHAT/CENTOS] Prepare repo and install ES on RedHat
+    - name: Download Repo key
+      become: yes
+      shell: rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch
+      when: ansible_os_family == "RedHat"
+    - name: Create Repo file
+      become: yes
+      file:
+        path: /etc/yum.repos.d/elasticsearch.repo
+        state: touch
+      when: ansible_os_family == "RedHat"
+    - name: Content of the Repo file
+      become: yes
+      lineinfile:
+        path: /etc/yum.repos.d/elasticsearch.repo
+        line: '{{ item }}'
+        state: present
+      with_items:
+        - '[elasticsearch]'
+        - name=Elasticsearch repository for 7.x packages
+        - baseurl=https://artifacts.elastic.co/packages/7.x/yum
+        - gpgcheck=1
+        - gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        - enabled=0
+        - autorefresh=1
+        - type=rpm-md
+      when: ansible_os_family == "RedHat"
+    - name: Install ElasticSearch on RedHat
+      become: yes
+      yum:
+        name: elasticsearch
+        state: present
+        enablerepo: elasticsearch
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+    # Add Firewalld rule on Centos, Redhat
+    - name: Add Firewall rule for ES RHEL
+      become: yes
+      command: '{{ item }}'
+      with_items:
+        - firewall-cmd --permanent --add-port=9200/tcp
+        - firewall-cmd --permanent --add-port=9300/tcp
+        - firewall-cmd --reload
+      when: ansible_os_family == "RedHat"
+# GENERATE CLUSTER CERTIFICATE
+- name: GENERATE CLUSTER CERTIFICATE
+  hosts: es1
+  tasks:
+    # Generate certificate on node 1
+    - name: Generate certificate
+      become: yes
+      shell:
+        cmd: /usr/share/elasticsearch/bin/elasticsearch-certutil cert -out /tmp/elastic-certificates.p12 -pass ""
+    - name: Change permission to 660
+      become: yes
+      file:
+        path: /tmp/elastic-certificates.p12
+        mode: '0660'
+    - name: Download the cert to ansible controller machine
+      become: yes
+      fetch:
+        src: /tmp/elastic-certificates.p12
+        dest: ./tmp/
+        flat: yes
+# UPLOAD CLUSTER CERITIFCATE
+- name: UPLOAD CLUSTER CERTIFICATE
+  hosts: es
+  tasks:
+    - name: Upload the cert to all 3 es node
+      become: yes
+      copy:
+        src: ./tmp/elastic-certificates.p12
+        dest: /etc/elasticsearch/
+        group: elasticsearch
+        mode: '0660'
+# GENERATE FRONT END CERTIFICATE FOR 3 node
+- name: GENERATE FRONT END CERTIFICATE ON ES1
+  hosts: es1
+  tasks:
+    - name: Generate front end certificate
+      become: yes
+      shell:
+        cmd: '/usr/share/elasticsearch/bin/elasticsearch-certutil cert -ip {{ hostvars["es1"].ansible_host }} -out /etc/elasticsearch/front-certificates.p12 -pass ""'
+- name: GENERATE FRONT END CERTIFICATE ON ES2
+  hosts: es2
+  tasks:
+    - name: Generate front end certificate
+      become: yes
+      shell:
+        cmd: '/usr/share/elasticsearch/bin/elasticsearch-certutil cert -ip {{ hostvars["es2"].ansible_host }} -out /etc/elasticsearch/front-certificates.p12 -pass ""'
+- name: GENERATE FRONT END CERTIFICATE ON ES3
+  hosts: es3
+  tasks:
+    - name: Generate front end certificate
+      become: yes
+      shell:
+        cmd: '/usr/share/elasticsearch/bin/elasticsearch-certutil cert -ip {{ hostvars["es3"].ansible_host }} -out /etc/elasticsearch/front-certificates.p12 -pass ""'
+- name: CHANGE CERT FILE PERMISSION
+  hosts: es
+  tasks:
+    - name: Change permission to 660
+      become: yes
+      file:
+        path: /etc/elasticsearch/front-certificates.p12
+        mode: '0660'
+# SETTING IN ES CONFIGURATION FILE ON EACH HOST
+- name: SETTING FOR ELASTICSEARCH NODE 1
+  hosts: es1
+  tasks:
+    # Configuration file settings for ES Cluster
+    - name: Set configuration file for Node 1
+      become: yes
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: '{{ item }}'
+        state: present
+      with_items:
+        - 'cluster.name: xsoar-db'
+        - 'node.name: {{ hostvars["es1"].es_node }}'
+        - 'node.master: true'
+        - 'node.data: true'
+        - 'network.host: {{ hostvars["es1"].ansible_host }}'
+        - 'http.port: 9200'
+        - 'discovery.seed_hosts: ["{{ hostvars["es1"].ansible_host }}", "{{ hostvars["es2"].ansible_host }}", "{{ hostvars["es3"].ansible_host }}"]'
+        - 'cluster.initial_master_nodes: ["{{ hostvars["es1"].es_node }}", "{{ hostvars["es2"].es_node }}", "{{ hostvars["es3"].es_node }}"]'
+        - 'xpack.security.enabled: true'
+        - 'xpack.security.transport.ssl.enabled: true'
+        - 'xpack.security.transport.ssl.verification_mode: certificate'
+        - 'xpack.security.transport.ssl.keystore.path: elastic-certificates.p12'
+        - 'xpack.security.transport.ssl.truststore.path: elastic-certificates.p12'
+        - 'xpack.security.http.ssl.enabled: true'
+        - 'xpack.security.http.ssl.keystore.path: front-certificates.p12'
+        - 'xpack.security.http.ssl.truststore.path: front-certificates.p12'
+        - 'xpack.security.http.ssl.client_authentication: optional'
+- name: SETTING FOR ELASTICSEARCH NODE 2
+  hosts: es2
+  tasks:
+    # Configuration file settings for ES Cluster
+    - name: Set configuration file for Node 2
+      become: yes
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: '{{ item }}'
+        state: present
+      with_items:
+        - 'cluster.name: xsoar-db'
+        - 'node.name: {{ hostvars["es2"].es_node }}'
+        - 'node.master: true'
+        - 'node.data: true'
+        - 'network.host: {{ hostvars["es2"].ansible_host }}'
+        - 'http.port: 9200'
+        - 'discovery.seed_hosts: ["{{ hostvars["es1"].ansible_host }}", "{{ hostvars["es2"].ansible_host }}", "{{ hostvars["es3"].ansible_host }}"]'
+        - 'cluster.initial_master_nodes: ["{{ hostvars["es1"].es_node }}", "{{ hostvars["es2"].es_node }}", "{{ hostvars["es3"].es_node }}"]'
+        - 'xpack.security.enabled: true'
+        - 'xpack.security.transport.ssl.enabled: true'
+        - 'xpack.security.transport.ssl.verification_mode: certificate'
+        - 'xpack.security.transport.ssl.keystore.path: elastic-certificates.p12'
+        - 'xpack.security.transport.ssl.truststore.path: elastic-certificates.p12'
+        - 'xpack.security.http.ssl.enabled: true'
+        - 'xpack.security.http.ssl.keystore.path: front-certificates.p12'
+        - 'xpack.security.http.ssl.truststore.path: front-certificates.p12'
+        - 'xpack.security.http.ssl.client_authentication: optional'
+- name: SETTING FOR ELASTICSEARCH NODE 3
+  hosts: es3
+  tasks:
+    # Configuration file settings for ES Cluster
+    - name: Set configuration file for Node 3
+      become: yes
+      lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        line: '{{ item }}'
+        state: present
+      with_items:
+        - 'cluster.name: xsoar-db'
+        - 'node.name: {{ hostvars["es3"].es_node }}'
+        - 'node.master: true'
+        - 'node.data: true'
+        - 'network.host: {{ hostvars["es3"].ansible_host }}'
+        - 'http.port: 9200'
+        - 'discovery.seed_hosts: ["{{ hostvars["es1"].ansible_host }}", "{{ hostvars["es2"].ansible_host }}", "{{ hostvars["es3"].ansible_host }}"]'
+        - 'cluster.initial_master_nodes: ["{{ hostvars["es1"].es_node }}", "{{ hostvars["es2"].es_node }}", "{{ hostvars["es3"].es_node }}"]'
+        - 'xpack.security.enabled: true'
+        - 'xpack.security.transport.ssl.enabled: true'
+        - 'xpack.security.transport.ssl.verification_mode: certificate'
+        - 'xpack.security.transport.ssl.keystore.path: elastic-certificates.p12'
+        - 'xpack.security.transport.ssl.truststore.path: elastic-certificates.p12'
+        - 'xpack.security.http.ssl.enabled: true'
+        - 'xpack.security.http.ssl.keystore.path: front-certificates.p12'
+        - 'xpack.security.http.ssl.truststore.path: front-certificates.p12'
+        - 'xpack.security.http.ssl.client_authentication: optional'
+# START THE SERVICE
+- name: START ES CLUSTER SERVICE
+  hosts: es
+  tasks:
+    - name: Create ES setting folder
+      become: yes
+      file:
+        path: /etc/systemd/system/elasticsearch.service.d
+        state: directory
+    - name: Create ES setting file
+      become: yes
+      file:
+        path: /etc/systemd/system/elasticsearch.service.d/startup-timeout.conf
+        state: touch
+    - name: Define TimeoutStartSec
+      become: yes
+      lineinfile:
+        path: /etc/systemd/system/elasticsearch.service.d/startup-timeout.conf
+        line: '{{ item }}'
+        state: present
+      with_items:
+        - "[Service]"
+        - TimeoutStartSec=180
+    - name: reload deamon
+      become: yes
+      command: systemctl daemon-reload
+    - name: Start ES Service
+      become: yes
+      service:
+        name: elasticsearch.service
+        state: started
+        enabled: yes
+# GENERATE PASSWORD FOR ELASTIC USER
+- name: GENERATE PASSWROD
+  hosts: es1
+  tasks:
+    - name: Generate password
+      become: yes
+      shell:
+        cmd: /usr/share/elasticsearch/bin/elasticsearch-setup-passwords auto -b > /tmp/elasticpass
+    - name: Capture the password
+      become: yes
+      shell:
+        cmd: cat /tmp/elasticpass | grep "PASSWORD elastic" | cut -d" " -f4
+      register: elastic_password
+    - debug: msg="{{ elastic_password.stdout }}"
