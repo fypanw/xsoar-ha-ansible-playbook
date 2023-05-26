@@ -12,3 +12,10 @@
 
 ### Usage for upgrades
 - In case of upgrades, use the 'xsoar_upgrade_installer' setting in inventory. The installer parameter will be ignored.
+
+#### Credits and License
+This work is inspired from Hiep Nguyen's work @ https://github.com/hiep4hiep. Special thanks to him for creating that example.
+
+This repository and all associated files are covered by the [Palo Alto Networks Script License](https://www.paloaltonetworks.com/content/dam/pan/en_US/assets/pdf/legal/script-software-license-1-0.pdf). Please refer to LICENSE.md
+
+© 2022 Palo Alto Networks, Inc.  All rights reserved.
