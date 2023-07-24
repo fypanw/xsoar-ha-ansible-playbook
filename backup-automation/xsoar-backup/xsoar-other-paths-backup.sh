@@ -1,15 +1,15 @@
 #!/bin/bash
 # This script is usefule for backing up artifacets and other
-# important files mentioned in the official docs for full server 
+# important files mentioned in the official docs for full server
 # migrations.
 # --------------------------------------------------------------
 
-# Ideally run this as the demisto user using 
+# Ideally run this as the demisto user using
 # sudo -u demisto bash ./xsoar-other-paths-backup.sh
 
 #CONFIG PARAMETERS
 BACKUP_LOG="/tmp/demisto-other-paths-backup.log"
-BACKUP_PATH="/var/lib/demisto-archive/other_backups/"
+BACKUP_PATH="/tmp/demisto-archive/other_backups/"
 
 # Do not edit below this line
 items=("/var/lib/demisto/artifacts" \
@@ -25,9 +25,9 @@ items=("/var/lib/demisto/artifacts" \
 mkdir -p $BACKUP_PATH
 
 echo "Backup attempted at $(date)" > $BACKUP_LOG
-for i in "${items[@]}"
+for i in ${items[@]}
 do
     tarfilename=$(echo $i | sed "s/\//_/g" | sed 's/^.//g')".$(date +"%Y%m%d%H%M%S").tar.gz"
-    echo $(date +"[%Y-%m-%d %H:%M:%S]")" Saving conents of $i in $tarfilename" >> $BACKUP_LOG
-    tar -czf $tarfilename $i >>$BACKUP_LOG 2>&1
+    echo $(date +"[%Y-%m-%d %H:%M:%S]")" Saving conents of $i in $tarfilename" | tee $BACKUP_LOG
+    tar -czvf $BACKUP_PATH/$tarfilename $i >> $BACKUP_LOG 2>&1
 done

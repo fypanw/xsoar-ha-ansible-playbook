@@ -8,7 +8,7 @@
 
 #### SETTINGS ####
 BASE_LOCATION="/var/lib/demisto"
-BACKUP_LOCATION="/var/lib/demisto-archive"
+BACKUP_LOCATION="/tmp/demisto-archive"
 
 # Core activity
 mkdir -p $BACKUP_LOCATION
