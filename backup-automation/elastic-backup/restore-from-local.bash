@@ -7,6 +7,8 @@ indexes=$(find ./backups/ -type f -exec basename {} \; | sed -e 's/.json//' | tr
 
 for ind in $indexes;
 do
-  echo "Restoring $ind from backups/$ind.json to $OUT_ES_HOST:$OUT_ES_PORT";
-  $ELASTICDUMP_CMD --output=$OUT_ES_URL/$ind --input=backups/$ind.json --type=data --overwrite 2>stderr.log
+  for exporttype in "index settings data mapping policy alias template component_template index_template";
+  do
+    echo "Restoring $ind from backups/$ind.$exporttype.json to $OUT_ES_HOST:$OUT_ES_PORT";
+    $ELASTICDUMP_CMD --output=$OUT_ES_URL/$ind --input=backups/$ind.$exporttype.json --type=$exporttype --overwrite 2>stderr.log
 done
