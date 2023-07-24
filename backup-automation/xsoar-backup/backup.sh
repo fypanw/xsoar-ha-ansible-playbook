@@ -15,7 +15,7 @@ mkdir -p $BACKUP_LOCATION
 
 # Archive data
 echo "[$(date "+%Y-%m-%d %H:%M:%S")] Making backup of $BASE_LOCATION to $BACKUP_LOCATION"
-tar -czf $BACKUP_LOCATION/var-lib-demisto-backup.$(date +"%Y%m%d%H%M%S").tar.gz $BASE_LOCATION
+tar -czf --exclude='tmp' --exclude='temp' $BACKUP_LOCATION/var-lib-demisto-backup.$(date +"%Y%m%d%H%M%S").tar.gz $BASE_LOCATION
 
 backup_folder_size=$(du -hs $BACKUP_LOCATION/)
 echo "[$(date "+%Y-%m-%d %H:%M:%S")] Size of backups in $BACKUP_LOCATION is $backup_folder_size"

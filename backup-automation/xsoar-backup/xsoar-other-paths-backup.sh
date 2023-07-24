@@ -18,7 +18,8 @@ items=("/var/lib/demisto/artifacts" \
 "/var/lib/demisto/d2_server.key" \
 "/var/lib/demisto/tools" \
 "/var/lib/demisto/versionControlRepo" \
-"/usr/local/demisto" \
+"/usr/local/demisto/cert.pem" \
+"/usr/local/demisto/cert.key" \
 "/etc/demisto.conf")
 
 # Try to create the directory if it doesn't exist

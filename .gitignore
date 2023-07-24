@@ -1,5 +1,6 @@
 installers/
 **.log
 **/backups**
+**/demisto-archive**
 .DS_Store
 **/setup-creds.sh
